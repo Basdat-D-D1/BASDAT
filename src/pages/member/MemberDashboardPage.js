@@ -2,11 +2,59 @@ import { ArrowRightLeft, BadgeDollarSign, CircleDollarSign, FileSearch, Gift } f
 import { Link } from 'react-router-dom';
 import StatCard from '../../components/StatCard';
 import { useAppContext } from '../../context/AppContext';
-import { formatNumber, getTierProgress } from '../../utils/formatters';
+import { formatDate, formatNumber, getTierProgress } from '../../utils/formatters';
 
 export default function MemberDashboardPage() {
   const { state } = useAppContext();
   const progress = getTierProgress(state.currentMember, state.masterData.tiers);
+  const memberActivities = state.recentActivity.filter((item) => item.memberNumber === state.currentMember.memberNumber);
+  const transactionHistory = [
+    ...state.purchases
+      .filter((purchase) => purchase.memberNumber === state.currentMember.memberNumber)
+      .map((purchase) => ({
+        id: purchase.id,
+        type: 'Miles Purchase',
+        detail: purchase.packageLabel,
+        value: `+${formatNumber(purchase.amount)} miles`,
+        date: purchase.createdAt,
+      })),
+    ...state.transfers
+      .filter(
+        (transfer) =>
+          transfer.fromMemberNumber === state.currentMember.memberNumber ||
+          transfer.toMemberNumber === state.currentMember.memberNumber
+      )
+      .map((transfer) => ({
+        id: transfer.id,
+        type: transfer.fromMemberNumber === state.currentMember.memberNumber ? 'Miles Transfer Out' : 'Miles Transfer In',
+        detail:
+          transfer.fromMemberNumber === state.currentMember.memberNumber
+            ? `To ${transfer.toMemberNumber}`
+            : `From ${transfer.fromMemberNumber}`,
+        value: `${transfer.fromMemberNumber === state.currentMember.memberNumber ? '-' : '+'}${formatNumber(transfer.amount)} miles`,
+        date: transfer.createdAt,
+      })),
+    ...state.redemptions
+      .filter((redemption) => redemption.memberNumber === state.currentMember.memberNumber)
+      .map((redemption) => ({
+        id: redemption.id,
+        type: 'Reward Redemption',
+        detail: redemption.rewardTitle,
+        value: `-${formatNumber(redemption.milesCost)} miles`,
+        date: redemption.createdAt,
+      })),
+    ...state.claims
+      .filter((claim) => claim.memberNumber === state.currentMember.memberNumber)
+      .map((claim) => ({
+        id: claim.id,
+        type: 'Missing Miles Claim',
+        detail: `${claim.airline} ${claim.flightNumber}`,
+        value: `${claim.status === 'Approved' ? '+' : ''}${formatNumber(claim.requestedMiles)} miles`,
+        date: claim.submittedAt,
+      })),
+  ]
+    .sort((left, right) => new Date(right.date) - new Date(left.date))
+    .slice(0, 6);
 
   const quickLinks = [
     { label: 'Claim Missing Miles', to: '/member/claim', icon: <FileSearch size={16} /> },
@@ -78,18 +126,49 @@ export default function MemberDashboardPage() {
           </div>
         </div>
         <div className="activity-list">
-          {state.recentActivity.map((item) => (
-            <div key={item.id} className="activity-row">
-              <div>
-                <strong>{item.title}</strong>
-                <span>{item.meta}</span>
+          {memberActivities.length ? (
+            memberActivities.map((item) => (
+              <div key={item.id} className="activity-row">
+                <div>
+                  <strong>{item.title}</strong>
+                  <span>{item.meta}</span>
+                </div>
+                <div className="activity-values">
+                  <strong>{item.amount}</strong>
+                  <span>{item.date}</span>
+                </div>
               </div>
-              <div className="activity-values">
-                <strong>{item.amount}</strong>
-                <span>{item.date}</span>
+            ))
+          ) : (
+            <div className="empty-inline">No recent activity yet for this member account.</div>
+          )}
+        </div>
+      </section>
+
+      <section className="panel" data-testid="member-transaction-history">
+        <div className="panel-header">
+          <div>
+            <div className="eyebrow">Miles history</div>
+            <h2>Transaction ledger</h2>
+          </div>
+        </div>
+        <div className="activity-list">
+          {transactionHistory.length ? (
+            transactionHistory.map((item) => (
+              <div key={item.id} className="activity-row">
+                <div>
+                  <strong>{item.type}</strong>
+                  <span>{item.id} · {item.detail}</span>
+                </div>
+                <div className="activity-values">
+                  <strong>{item.value}</strong>
+                  <span>{formatDate(item.date)}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <div className="empty-inline">No transaction history yet for this member account.</div>
+          )}
         </div>
       </section>
     </div>

@@ -1,10 +1,16 @@
 import { useMemo, useState } from 'react';
+import Badge from '../../components/Badge';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import DataTable from '../../components/DataTable';
+import Drawer from '../../components/Drawer';
 import FormField from '../../components/FormField';
 import SelectField from '../../components/SelectField';
 import { useAppContext } from '../../context/AppContext';
+import { formatDate, formatNumber } from '../../utils/formatters';
 import { validateClaim } from '../../utils/validation';
 
 const defaultValues = {
+  id: '',
   airline: '',
   flightNumber: '',
   flightDate: '',
@@ -17,10 +23,12 @@ const defaultValues = {
 };
 
 export default function ClaimPage() {
-  const { state, notify, submitClaim } = useAppContext();
+  const { state, notify, saveClaim, deleteClaim } = useAppContext();
   const [values, setValues] = useState(defaultValues);
   const [errors, setErrors] = useState({});
   const [submittedClaim, setSubmittedClaim] = useState(null);
+  const [selectedClaim, setSelectedClaim] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const airportOptions = useMemo(
     () => state.masterData.airports.map((airport) => ({ value: airport.code, label: `${airport.code} - ${airport.city}` })),
@@ -32,7 +40,20 @@ export default function ClaimPage() {
     [state.masterData.airlines]
   );
 
+  const memberClaims = useMemo(
+    () =>
+      state.claims
+        .filter((claim) => claim.memberNumber === state.currentMember.memberNumber)
+        .sort((left, right) => new Date(right.submittedAt) - new Date(left.submittedAt)),
+    [state.claims, state.currentMember.memberNumber]
+  );
+
   const handleChange = (key, value) => setValues((current) => ({ ...current, [key]: value }));
+
+  const openEditor = (claim) => {
+    setValues(claim ? { ...claim } : defaultValues);
+    setErrors({});
+  };
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -43,16 +64,77 @@ export default function ClaimPage() {
       return;
     }
 
-    const claim = submitClaim(values);
+    const claim = saveClaim(values);
     setSubmittedClaim(claim);
     setValues(defaultValues);
     setErrors({});
     notify({
       type: 'success',
-      title: 'Claim submitted',
+      title: values.id ? 'Claim updated' : 'Claim submitted',
       message: `${claim.id} is now pending review.`,
     });
   };
+
+  const canMutateClaim = (claim) => claim.status !== 'Approved';
+
+  const columns = [
+    { key: 'id', label: 'Claim ID' },
+    { key: 'airline', label: 'Airline' },
+    { key: 'flightNumber', label: 'Flight' },
+    {
+      key: 'route',
+      label: 'Route',
+      render: (row) => `${row.origin} to ${row.destination}`,
+    },
+    {
+      key: 'requestedMiles',
+      label: 'Requested Miles',
+      render: (row) => formatNumber(row.requestedMiles),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (row) => (
+        <Badge tone={row.status === 'Approved' ? 'success' : row.status === 'Rejected' ? 'danger' : 'gold'}>
+          {row.status}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (row) => (
+        <div className="table-actions">
+          <button
+            type="button"
+            className="button button-secondary compact-button"
+            onClick={() => setSelectedClaim(row)}
+            data-testid={`view-claim-${row.id}`}
+          >
+            View
+          </button>
+          <button
+            type="button"
+            className="button button-secondary compact-button"
+            onClick={() => openEditor(row)}
+            disabled={!canMutateClaim(row)}
+            data-testid={`edit-claim-${row.id}`}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className="button button-danger compact-button"
+            onClick={() => setDeleteTarget(row)}
+            disabled={!canMutateClaim(row)}
+            data-testid={`delete-claim-${row.id}`}
+          >
+            Delete
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="stack gap-xl">
@@ -60,7 +142,7 @@ export default function ClaimPage() {
         <div className="panel-header">
           <div>
             <div className="eyebrow">Mileage adjustment</div>
-            <h2>Flight details</h2>
+            <h2>{values.id ? 'Update claim submission' : 'Flight details'}</h2>
           </div>
         </div>
 
@@ -132,7 +214,7 @@ export default function ClaimPage() {
             data-testid="claim-pnr-input"
           />
           <FormField
-            className="claim-notes-field"
+            className="claim-notes-field span-full"
             label="Notes"
             multiline
             rows={4}
@@ -144,8 +226,13 @@ export default function ClaimPage() {
         </div>
 
         <div className="panel-actions claim-submit-row">
+          {values.id ? (
+            <button type="button" className="button button-secondary" onClick={() => openEditor(null)} data-testid="claim-cancel-edit">
+              Cancel Edit
+            </button>
+          ) : null}
           <button type="submit" className="button button-primary" data-testid="claim-submit">
-            Submit Claim
+            {values.id ? 'Update Claim' : 'Submit Claim'}
           </button>
         </div>
       </form>
@@ -162,6 +249,82 @@ export default function ClaimPage() {
           <p>Your claim is queued for staff review. You can continue with purchases, transfers, or rewards while this stays pending.</p>
         </section>
       ) : null}
+
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <div className="eyebrow">Claim history</div>
+            <h2>Submitted missing miles cases</h2>
+          </div>
+        </div>
+        <DataTable columns={columns} rows={memberClaims} testId="member-claims-table" />
+      </section>
+
+      <Drawer
+        open={Boolean(selectedClaim)}
+        title={selectedClaim?.id || ''}
+        onClose={() => setSelectedClaim(null)}
+        testId="member-claim-detail"
+        placement="center"
+      >
+        {selectedClaim ? (
+          <div className="stack gap-lg">
+            <div className="detail-grid">
+              <div>
+                <span className="detail-label">Status</span>
+                <strong>{selectedClaim.status}</strong>
+              </div>
+              <div>
+                <span className="detail-label">Submitted on</span>
+                <strong>{formatDate(selectedClaim.submittedAt)}</strong>
+              </div>
+              <div>
+                <span className="detail-label">Flight</span>
+                <strong>{selectedClaim.airline} {selectedClaim.flightNumber}</strong>
+              </div>
+              <div>
+                <span className="detail-label">Route</span>
+                <strong>{selectedClaim.origin} to {selectedClaim.destination}</strong>
+              </div>
+              <div>
+                <span className="detail-label">Requested miles</span>
+                <strong>{formatNumber(selectedClaim.requestedMiles)}</strong>
+              </div>
+              <div>
+                <span className="detail-label">Cabin class</span>
+                <strong>{selectedClaim.cabinClass}</strong>
+              </div>
+            </div>
+            {selectedClaim.reviewerNote ? (
+              <div className="wallet-note">
+                Reviewer note: {selectedClaim.reviewerNote}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </Drawer>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete claim"
+        description={`Delete ${deleteTarget?.id || 'this claim'} from the member request list?`}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          deleteClaim(deleteTarget.id);
+          if (selectedClaim?.id === deleteTarget.id) {
+            setSelectedClaim(null);
+          }
+          if (submittedClaim?.id === deleteTarget.id) {
+            setSubmittedClaim(null);
+          }
+          setDeleteTarget(null);
+          notify({
+            type: 'success',
+            title: 'Claim deleted',
+            message: 'The selected claim has been removed.',
+          });
+        }}
+      />
     </div>
   );
 }
