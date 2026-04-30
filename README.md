@@ -1,4 +1,4 @@
-## Karena beberapa Masalah, Kita perlu Migrasi Ke repo baru sehingga activity history dipenuhi oleh Haekal Dinova, Tetapi kita tetap bekerja untuk menegrjakan tugas masing-masing.
+## Karena beberapa masalah kami perlu migrasi ke repo baru, sehingga activity-nya hanya Dinova yang mengerjakan (dia yang memindahkan ke repo baru). Sebagaimana yang terlihat pada Contributors, kami semua sudah membuat bagian masing-masing.
 
 # AeroMiles TK Front-End
 
@@ -169,4 +169,4 @@ python -m pytest tests/test_aeromiles_ui.py -q
 - Persisted demo data uses browser `localStorage`.
 - Selenium selectors rely on stable `data-testid` attributes.
 
-## Karena beberapa masalah kami perlu migrasi ke repo baru, sehingga activity-nya hanya Dinova yang mengerjakan (dia yang memindahkan ke repo baru). Sebagaimana yang terlihat pada Contributors, kami semua sudah membuat bagian masing-masing.
+
