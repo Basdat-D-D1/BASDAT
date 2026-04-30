@@ -217,6 +217,36 @@ def add_minimal_staff(
   select_testid(driver, 'staff-status-select', status)
 
 
+def register_member(driver, email, first_name='Bagas', last_name='Hartono'):
+  open_page(driver, '/register')
+  click_testid(driver, 'register-member-tab')
+  input_testid(driver, 'register-first-name-input', first_name)
+  input_testid(driver, 'register-last-name-input', last_name)
+  input_testid(driver, 'register-email-input', email)
+  set_date_testid(driver, 'register-dob-input', '1995-05-14')
+  input_testid(driver, 'register-nationality-input', 'Indonesia')
+  input_testid(driver, 'register-password-input', 'password123')
+  input_testid(driver, 'register-confirm-password-input', 'password123')
+
+
+def register_staff(driver, email, airline='Ozi Skies', role='Alliance Response Analyst', first_name='Alya', last_name='Prameswari'):
+  open_page(driver, '/register?role=staff')
+  click_testid(driver, 'register-staff-tab')
+  input_testid(driver, 'register-first-name-input', first_name)
+  input_testid(driver, 'register-last-name-input', last_name)
+  input_testid(driver, 'register-email-input', email)
+  select_testid(driver, 'register-airline-select', airline)
+  input_testid(driver, 'register-role-input', role)
+  input_testid(driver, 'register-password-input', 'password123')
+  input_testid(driver, 'register-confirm-password-input', 'password123')
+
+
+def extract_claim_id(text):
+  match = re.search(r'(CLM-\d+)', text)
+  assert match is not None
+  return match.group(1)
+
+
 def create_master_row(driver, section, values):
   click_testid(driver, f'master-add-{section}')
   wait_for_testid(driver, 'master-editor-modal')
@@ -321,6 +351,58 @@ def test_staff_login_success(driver):
   wait_for_testid(driver, 'admin-pending-claims-card')
 
 
+def test_member_registration_success(driver):
+  register_member(driver, 'bagas.hartono@gmail.com')
+  click_testid(driver, 'register-submit')
+  WebDriverWait(driver, TIMEOUT).until(EC.url_contains('/member/dashboard'))
+  wait_for_testid(driver, 'member-dashboard')
+  visit_path(driver, '/member/profile')
+  wait_for_testid(driver, 'member-profile-page')
+  assert 'bagas.hartono@gmail.com' == wait_for_testid(driver, 'member-profile-email-input').get_attribute('value')
+
+
+def test_staff_registration_success(driver):
+  register_staff(driver, 'alya.prameswari@oziskies.com')
+  click_testid(driver, 'register-submit')
+  WebDriverWait(driver, TIMEOUT).until(EC.url_contains('/admin/dashboard'))
+  wait_for_testid(driver, 'admin-dashboard')
+  visit_path(driver, '/admin/profile')
+  wait_for_testid(driver, 'admin-profile-page')
+  assert 'alya.prameswari@oziskies.com' == wait_for_testid(driver, 'admin-profile-email-input').get_attribute('value')
+
+
+def test_member_navigation_links_visible(driver):
+  login_member(driver)
+  WebDriverWait(driver, TIMEOUT).until(EC.presence_of_element_located((By.LINK_TEXT, 'Dashboard')))
+  WebDriverWait(driver, TIMEOUT).until(EC.presence_of_element_located((By.LINK_TEXT, 'Claim Miles')))
+  WebDriverWait(driver, TIMEOUT).until(EC.presence_of_element_located((By.LINK_TEXT, 'Buy Miles')))
+  WebDriverWait(driver, TIMEOUT).until(EC.presence_of_element_located((By.LINK_TEXT, 'Transfer Miles')))
+  WebDriverWait(driver, TIMEOUT).until(EC.presence_of_element_located((By.LINK_TEXT, 'Rewards')))
+  WebDriverWait(driver, TIMEOUT).until(EC.presence_of_element_located((By.LINK_TEXT, 'Identity Docs')))
+
+
+def test_member_logout_redirects_to_login(driver):
+  login_member(driver)
+  click_testid(driver, 'topbar-logout-button')
+  WebDriverWait(driver, TIMEOUT).until(EC.url_contains('/login'))
+  wait_for_testid(driver, 'login-submit')
+
+
+def test_member_dashboard_shows_tier_information(driver):
+  login_member(driver)
+  wait_for_testid(driver, 'member-dashboard')
+  assert_text_present(driver, 'Current Tier')
+  assert_text_present(driver, 'Gold to Platinum')
+  assert_text_present(driver, 'Tier Miles remaining to reach Platinum')
+
+
+def test_member_transaction_history_visible(driver):
+  login_member(driver)
+  history = wait_for_testid(driver, 'member-transaction-history')
+  assert 'PUR-260412-001' in history.text
+  assert 'TRF-260402-001' in history.text
+
+
 def test_submit_valid_missing_miles_claim(driver):
   login_member(driver)
   visit_path(driver, '/member/claim')
@@ -330,6 +412,32 @@ def test_submit_valid_missing_miles_claim(driver):
   success = wait_for_testid(driver, 'claim-success')
   assert 'Pending Review' in success.text
   assert 'CLM-' in success.text
+
+
+def test_member_claim_crud_end_to_end(driver):
+  login_member(driver)
+  visit_path(driver, '/member/claim')
+  wait_for_testid(driver, 'claim-form')
+  fill_valid_claim(driver, (date.today() - timedelta(days=9)).isoformat())
+  click_testid(driver, 'claim-submit')
+  success = wait_for_testid(driver, 'claim-success')
+  claim_id = extract_claim_id(success.text)
+  wait_until_table_contains(driver, 'member-claims-table', claim_id)
+
+  click_testid(driver, f'view-claim-{claim_id}')
+  wait_for_testid(driver, 'member-claim-detail')
+  assert_text_present(driver, claim_id)
+  click_testid(driver, 'drawer-close-button')
+
+  click_testid(driver, f'edit-claim-{claim_id}')
+  input_testid(driver, 'claim-flight-number-input', 'OZ725')
+  input_testid(driver, 'claim-notes-input', 'Updated claim notes for Selenium coverage.')
+  click_testid(driver, 'claim-submit')
+  wait_until_table_contains(driver, 'member-claims-table', 'OZ725')
+
+  click_testid(driver, f'delete-claim-{claim_id}')
+  click_testid(driver, 'confirm-accept')
+  wait_until_table_not_contains(driver, 'member-claims-table', claim_id)
 
 
 def test_purchase_miles_success(driver):
@@ -359,6 +467,49 @@ def test_add_member_success(driver):
     EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid='add-member-modal']"))
   )
   wait_for_text(driver, 'AM-999991')
+
+
+def test_member_crud_end_to_end(driver):
+  login_staff(driver)
+  visit_path(driver, '/admin/members')
+  wait_for_testid(driver, 'admin-members-page')
+
+  add_minimal_member(driver, 'lita.santoso@gmail.com', 'AM-999993')
+  click_testid(driver, 'save-member-button')
+  wait_until_testid_gone(driver, 'add-member-modal')
+  wait_until_table_contains(driver, 'member-table', 'AM-999993')
+
+  input_testid(driver, 'member-search-input', 'AM-999993')
+  click_testid(driver, 'view-member-AM-999993')
+  wait_for_testid(driver, 'member-detail-drawer')
+  assert_text_present(driver, 'Sinta Wijaya')
+  click_testid(driver, 'drawer-close-button')
+
+  click_testid(driver, 'edit-member-AM-999993')
+  input_testid(driver, 'member-first-name-input', 'Lita')
+  select_testid(driver, 'member-status-select', 'Suspended')
+  click_testid(driver, 'save-member-button')
+  wait_until_testid_gone(driver, 'add-member-modal')
+  wait_until_table_contains(driver, 'member-table', 'Lita Wijaya')
+  wait_until_table_contains(driver, 'member-table', 'Suspended')
+
+  click_testid(driver, 'delete-member-AM-999993')
+  click_testid(driver, 'confirm-accept')
+  wait_until_table_not_contains(driver, 'member-table', 'AM-999993')
+
+
+def test_member_profile_settings_update(driver):
+  login_member(driver)
+  visit_path(driver, '/member/profile')
+  wait_for_testid(driver, 'member-profile-page')
+  input_testid(driver, 'member-profile-first-name-input', 'Aditya')
+  input_testid(driver, 'member-profile-email-input', 'aditya.pratama@gmail.com')
+  select_testid(driver, 'member-profile-airport-select', 'DPS - Denpasar')
+  click_testid(driver, 'member-profile-save-button')
+  success_toast = wait_for_testid(driver, 'toast-success')
+  assert 'Profile updated' in success_toast.text
+  assert 'Aditya' in driver.find_element(By.TAG_NAME, 'body').text
+  assert 'aditya.pratama@gmail.com' == wait_for_testid(driver, 'member-profile-email-input').get_attribute('value')
 
 
 def test_edit_staff_success(driver):
@@ -447,6 +598,19 @@ def test_add_staff_success(driver):
     EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid='add-staff-modal']"))
   )
   wait_for_text(driver, 'STF-9991')
+
+
+def test_staff_profile_settings_update(driver):
+  login_staff(driver)
+  visit_path(driver, '/admin/profile')
+  wait_for_testid(driver, 'admin-profile-page')
+  input_testid(driver, 'admin-profile-mobile-input', '8110007788')
+  input_testid(driver, 'admin-profile-workspace-input', 'Alliance Crisis Desk')
+  select_testid(driver, 'admin-profile-alert-digest-select', 'Real-time')
+  click_testid(driver, 'admin-profile-save-button')
+  success_toast = wait_for_testid(driver, 'toast-success')
+  assert 'Profile updated' in success_toast.text
+  assert 'Alliance Crisis Desk' == wait_for_testid(driver, 'admin-profile-workspace-input').get_attribute('value')
 
 
 def test_staff_crud_end_to_end(driver):
@@ -636,6 +800,72 @@ def test_approve_claim_success(driver):
   )
 
 
+def test_claim_reject_requires_reason(driver):
+  login_staff(driver)
+  visit_path(driver, '/admin/claims')
+  wait_for_testid(driver, 'claim-review-page')
+  input_testid(driver, 'claim-reject-reason-input', '')
+  click_testid(driver, 'reject-claim-button')
+  wait_for_text(driver, 'Reject reason is required')
+
+
+def test_claim_request_more_info_success(driver):
+  login_staff(driver)
+  visit_path(driver, '/admin/claims')
+  wait_for_testid(driver, 'claim-review-page')
+  click_testid(driver, 'request-more-info-button')
+  WebDriverWait(driver, TIMEOUT).until(
+    EC.presence_of_element_located(
+      (
+        By.XPATH,
+        "//h2[normalize-space()='CLM-260401']/ancestor::section[contains(@class,'panel')]//*[contains(text(),'More Info Requested')]",
+      )
+    )
+  )
+
+
+def test_identity_crud_end_to_end(driver):
+  login_member(driver)
+  visit_path(driver, '/member/identity')
+  wait_for_testid(driver, 'member-identity-page')
+
+  document_number = '3174091408919911'
+  click_testid(driver, 'add-identity-button')
+  wait_for_testid(driver, 'identity-modal')
+  select_testid(driver, 'identity-type-select', 'KTP')
+  input_testid(driver, 'identity-number-input', document_number)
+  input_testid(driver, 'identity-country-input', 'Indonesia')
+  set_date_testid(driver, 'identity-issue-date-input', '2020-01-15')
+  click_testid(driver, 'identity-lifetime-checkbox')
+  click_testid(driver, 'identity-save-button')
+  wait_until_testid_gone(driver, 'identity-modal')
+  wait_until_table_contains(driver, 'identity-table', document_number)
+  wait_until_table_contains(driver, 'identity-table', 'Lifetime')
+
+  click_testid(driver, f'edit-identity-{document_number}')
+  wait_for_testid(driver, 'identity-modal')
+  input_testid(driver, 'identity-country-input', 'Indonesia Raya')
+  click_testid(driver, 'identity-save-button')
+  wait_until_testid_gone(driver, 'identity-modal')
+  wait_until_table_contains(driver, 'identity-table', 'Indonesia Raya')
+
+  click_testid(driver, f'delete-identity-{document_number}')
+  click_testid(driver, 'confirm-accept')
+  wait_until_table_not_contains(driver, 'identity-table', document_number)
+
+
+def test_member_registration_rejects_duplicate_email(driver):
+  register_member(driver, 'adi.pratama@gmail.com')
+  click_testid(driver, 'register-submit')
+  wait_for_text(driver, 'Email is already registered')
+
+
+def test_staff_registration_rejects_personal_email(driver):
+  register_staff(driver, 'someone@gmail.com')
+  click_testid(driver, 'register-submit')
+  wait_for_text(driver, 'Company email must use one of these domains')
+
+
 def test_member_login_fails_with_wrong_password(driver):
   open_page(driver, '/login')
   click_testid(driver, 'login-member-tab')
@@ -700,6 +930,14 @@ def test_reward_redeem_insufficient_miles(driver):
   visit_path(driver, '/member/rewards')
   click_testid(driver, 'reward-redeem-rwd-004')
   wait_for_text(driver, 'Insufficient Award Miles for this redemption')
+
+
+def test_reward_redeem_success(driver):
+  login_member(driver)
+  visit_path(driver, '/member/rewards')
+  click_testid(driver, 'reward-redeem-rwd-001')
+  success_toast = wait_for_testid(driver, 'toast-success')
+  assert 'Reward redeemed' in success_toast.text
 
 
 def test_add_member_invalid_email(driver):
