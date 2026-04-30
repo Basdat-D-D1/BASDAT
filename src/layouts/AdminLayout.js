@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  FileCheck2,
   LayoutDashboard,
   ShieldCheck,
   Users,
@@ -13,6 +14,7 @@ import { useAppContext } from '../context/AppContext';
 
 const adminRoutes = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, testId: 'admin-nav-dashboard' },
+  { to: '/admin/claims', label: 'Claims', icon: <FileCheck2 size={18} />, testId: 'admin-nav-claims' },
   { to: '/admin/members', label: 'Members', icon: <Users size={18} />, testId: 'admin-nav-members' },
   { to: '/admin/reports', label: 'Reports', icon: <BarChart3 size={18} />, testId: 'admin-nav-reports' },
   { to: '/admin/staff', label: 'Staff', icon: <UserSquare2 size={18} />, testId: 'admin-nav-staff' },
@@ -23,6 +25,10 @@ const routeMeta = {
   '/admin/dashboard': {
     title: 'Admin Dashboard',
     subtitle: 'Loyalty operations, claims, revenue, and airline performance at a glance.',
+  },
+  '/admin/claims': {
+    title: 'Claim Review Queue',
+    subtitle: 'Approve, reject, or request more information for pending claims.',
   },
   '/admin/members': {
     title: 'Member Management',
