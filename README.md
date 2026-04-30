@@ -166,3 +166,5 @@ python -m pytest tests/test_aeromiles_ui.py -q
 - All business state is mocked in `src/data/mockData.js`.
 - Persisted demo data uses browser `localStorage`.
 - Selenium selectors rely on stable `data-testid` attributes.
+
+## Karena beberapa masalah kami perlu migrasi ke repo baru, sehingga activity-nya hanya Dinova yang mengerjakan (dia yang memindahkan ke repo baru). Sebagaimana yang terlihat pada Contributors, kami semua sudah membuat bagian masing-masing.
