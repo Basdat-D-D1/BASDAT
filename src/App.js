@@ -5,8 +5,10 @@ import AdminLayout from './layouts/AdminLayout';
 import MemberLayout from './layouts/MemberLayout';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import ClaimsPage from './pages/admin/ClaimsPage';
+import MasterDataPage from './pages/admin/MasterDataPage';
 import MembersPage from './pages/admin/MembersPage';
 import ReportsPage from './pages/admin/ReportsPage';
+import RewardsManagementPage from './pages/admin/RewardsManagementPage';
 import StaffPage from './pages/admin/StaffPage';
 import TransactionsPage from './pages/admin/TransactionsPage';
 import LandingPage from './pages/LandingPage';
@@ -41,8 +43,10 @@ function AppRoutes() {
           <Route element={<AdminLayout />}>
             <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
             <Route path="/admin/claims" element={<ClaimsPage />} />
+            <Route path="/admin/master-data" element={<MasterDataPage />} />
             <Route path="/admin/members" element={<MembersPage />} />
             <Route path="/admin/reports" element={<ReportsPage />} />
+            <Route path="/admin/rewards-management" element={<RewardsManagementPage />} />
             <Route path="/admin/staff" element={<StaffPage />} />
             <Route path="/admin/transactions" element={<TransactionsPage />} />
           </Route>
