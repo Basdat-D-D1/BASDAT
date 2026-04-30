@@ -1,3 +1,5 @@
+## Karena beberapa Masalah, Kita perlu Migrasi Ke repo baru sehingga activity history dipenuhi oleh Haekal Dinova, Tetapi kita tetap bekerja untuk menegrjakan tugas masing-masing.
+
 # AeroMiles TK Front-End
 
 Front-end-only React application for the AeroMiles airline loyalty system. The app is built on the existing Create React App project, uses mocked data only, and follows the connected Stitch design direction for the member and staff experiences.
